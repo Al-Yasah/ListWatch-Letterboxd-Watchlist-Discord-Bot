@@ -2,9 +2,11 @@ name: Check Letterboxd Digital Releases
 
 on:
   schedule:
-    # Runs twice daily at 06:00 and 18:00 UTC
     - cron: '0 6,18 * * *'
-  workflow_dispatch: # Allows you to manually trigger it from GitHub anytime
+  workflow_dispatch:
+
+permissions:
+  contents: write  # Critical: Grants the runner permission to push commits to main
 
 jobs:
   check-movies:
@@ -12,6 +14,8 @@ jobs:
     steps:
       - name: Check out repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -29,9 +33,14 @@ jobs:
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
         run: python check.py
 
-      - name: Commit updated database
+      - name: Commit and push updated database
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add tracker.db
-          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: update notified movies database" && git push)
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f tracker.db
+          if git status --porcelain | grep -q 'tracker.db'; then
+            git commit -m "chore: update notified movies database [skip ci]"
+            git push origin main
+          else
+            echo "No database changes to commit."
+          fi
