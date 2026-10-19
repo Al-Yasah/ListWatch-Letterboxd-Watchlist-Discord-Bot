@@ -1,0 +1,37 @@
+name: Check Letterboxd Digital Releases
+
+on:
+  schedule:
+    # Runs twice daily at 06:00 and 18:00 UTC
+    - cron: '0 6,18 * * *'
+  workflow_dispatch: # Allows you to manually trigger it from GitHub anytime
+
+jobs:
+  check-movies:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4
+
+      - name: Run release check
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_USER_ID: ${{ secrets.DISCORD_USER_ID }}
+          LETTERBOXD_USERNAME: ${{ secrets.LETTERBOXD_USERNAME }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: python check.py
+
+      - name: Commit updated database
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add tracker.db
+          git diff --quiet && git diff --staged --quiet || (git commit -m "chore: update notified movies database" && git push)
